@@ -33,7 +33,11 @@ def lambda_handler(event, context):
 
     headers = event.get("headers", {})
 
-    firma = headers.get("stripe-signature") or headers.get("Stripe-Signature")
+    firma = (
+        headers.get("stripe-signature")
+        or headers.get("Stripe-Signature")
+        or headers.get("STRIPE-SIGNATURE")
+    )
 
     if not firma:
         print("no vino firma de stripe")
