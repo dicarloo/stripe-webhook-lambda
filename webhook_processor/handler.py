@@ -364,13 +364,14 @@ def _evento_ya_procesado(evento_id):
 
 
 def _marcar_evento_procesado(evento_id, tipo):
+    ahora = datetime.utcnow()
     try:
         tabla_eventos.put_item(Item={
             "evento_id": evento_id,
             "tipo": tipo,
-            "procesado_en": datetime.utcnow().isoformat(),
+            "procesado_en": ahora.isoformat(),
             # ttl de 7 dias para no llenar la tabla para siempre
-            "ttl": int(datetime.utcnow().timestamp()) + 604800,
+            "ttl": int(ahora.timestamp()) + 604800,
         })
     except Exception as e:
         print("error marcando evento procesado:", str(e))
