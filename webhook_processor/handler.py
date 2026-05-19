@@ -147,6 +147,7 @@ def _pago_exitoso(datos, evento):
         "pago_id": payment_intent_id,
         "monto": monto,
         "moneda": moneda,
+        "cliente_id": cliente_id,
     })
 
 
