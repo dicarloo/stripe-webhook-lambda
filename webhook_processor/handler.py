@@ -13,6 +13,7 @@ WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
 dynamodb = boto3.resource("dynamodb")
 tabla_pedidos = dynamodb.Table(os.environ.get("TABLA_PEDIDOS", "pedidos"))
 tabla_pagos = dynamodb.Table(os.environ.get("TABLA_PAGOS", "pagos"))
+tabla_eventos = dynamodb.Table(os.environ.get("TABLA_EVENTOS", "eventos_stripe"))
 
 # sqs = boto3.client("sqs")
 # COLA_URL = os.environ.get("SQS_COLA_URL")
@@ -48,10 +49,15 @@ def lambda_handler(event, context):
         return _respuesta(500, {"error": "error interno"})
 
     tipo = evento_stripe["type"]
+    evento_id = evento_stripe["id"]
     datos = evento_stripe["data"]["object"]
 
     # print("tipo de evento:", tipo)
     # print("datos:", json.dumps(datos, default=str))
+
+    if _evento_ya_procesado(evento_id):
+        print(f"evento duplicado ignorado: {evento_id}")
+        return _respuesta(200, {"recibido": True, "duplicado": True})
 
     handlers = {
         "payment_intent.succeeded": _pago_exitoso,
@@ -70,6 +76,7 @@ def lambda_handler(event, context):
     if fn:
         try:
             fn(datos, evento_stripe)
+            _marcar_evento_procesado(evento_id, tipo)
         except Exception as e:
             print(f"error procesando {tipo}:", str(e))
             return _respuesta(500, {"error": "fallo al procesar"})
@@ -315,6 +322,28 @@ def _publicar_evento(tipo_interno, payload):
     #     QueueUrl=COLA_URL,
     #     MessageBody=json.dumps({"tipo": tipo_interno, "payload": payload}),
     # )
+
+
+def _evento_ya_procesado(evento_id):
+    try:
+        resp = tabla_eventos.get_item(Key={"evento_id": evento_id})
+        return "Item" in resp
+    except Exception as e:
+        print("error chequeando idempotencia:", str(e))
+        return False
+
+
+def _marcar_evento_procesado(evento_id, tipo):
+    try:
+        tabla_eventos.put_item(Item={
+            "evento_id": evento_id,
+            "tipo": tipo,
+            "procesado_en": datetime.utcnow().isoformat(),
+            # ttl de 7 dias para no llenar la tabla para siempre
+            "ttl": int(datetime.utcnow().timestamp()) + 604800,
+        })
+    except Exception as e:
+        print("error marcando evento procesado:", str(e))
 
 
 def _respuesta(status, cuerpo):
