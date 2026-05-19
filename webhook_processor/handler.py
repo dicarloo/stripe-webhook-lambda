@@ -254,16 +254,19 @@ def _suscripcion_cancelada(datos, evento):
     sub_id = datos["id"]
     cliente_id = datos["customer"]
     cancelado_en = datos.get("canceled_at")
+    motivo = datos.get("cancellation_details", {}).get("reason", "")
 
     # no siempre viene canceled_at si la cancelas al final del periodo
     # print("cancelado_en:", cancelado_en)
+    # print("motivo cancelacion:", motivo)
 
     tabla_pagos.update_item(
         Key={"pago_id": sub_id},
-        UpdateExpression="SET estado = :e, cancelado_en = :c",
+        UpdateExpression="SET estado = :e, cancelado_en = :c, motivo = :m",
         ExpressionAttributeValues={
             ":e": "cancelada",
             ":c": str(cancelado_en) if cancelado_en else "desconocido",
+            ":m": motivo or "sin_motivo",
         },
     )
 
