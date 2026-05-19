@@ -283,11 +283,15 @@ def _factura_fallida(datos, evento):
     monto = datos.get("amount_due")
     intento = datos.get("attempt_count", 0)
 
-    # si ya lleva 3 intentos fallidos avisamos diferente
-    # if intento >= 3:
-    #     _publicar_evento("suscripcion_en_riesgo", {...})
-
     print(f"factura fallida {invoice_id}, intento #{intento}")
+
+    if intento >= 3:
+        _publicar_evento("suscripcion_en_riesgo", {
+            "invoice_id": invoice_id,
+            "cliente_id": cliente_id,
+            "sub_id": sub_id,
+            "intentos": intento,
+        })
 
     tabla_pagos.put_item(Item={
         "pago_id": invoice_id,
