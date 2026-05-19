@@ -1,8 +1,10 @@
 import json
 import os
+import time
 import stripe
 import boto3
 from datetime import datetime
+from botocore.exceptions import ClientError
 
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
@@ -300,25 +302,36 @@ def _factura_fallida(datos, evento):
     })
 
 
-def _publicar_evento(tipo_interno, payload):
+def _publicar_evento(tipo_interno, payload, reintentos=3):
     if not TOPIC_ARN:
         print("sin TOPIC_ARN configurado, saltando SNS")
         return
 
-    try:
-        sns.publish(
-            TopicArn=TOPIC_ARN,
-            Message=json.dumps(payload),
-            Subject=tipo_interno,
-            MessageAttributes={
-                "tipo_evento": {
-                    "DataType": "String",
-                    "StringValue": tipo_interno,
-                }
-            },
-        )
-    except Exception as e:
-        print(f"error publicando en SNS ({tipo_interno}):", str(e))
+    # antes no tenia reintentos y a veces sns tiraba throttling en prod
+    for intento in range(reintentos):
+        try:
+            sns.publish(
+                TopicArn=TOPIC_ARN,
+                Message=json.dumps(payload),
+                Subject=tipo_interno,
+                MessageAttributes={
+                    "tipo_evento": {
+                        "DataType": "String",
+                        "StringValue": tipo_interno,
+                    }
+                },
+            )
+            return
+        except ClientError as e:
+            codigo = e.response["Error"]["Code"]
+            if codigo == "Throttling" and intento < reintentos - 1:
+                time.sleep(2 ** intento)
+                continue
+            print(f"error publicando en SNS ({tipo_interno}):", str(e))
+            break
+        except Exception as e:
+            print(f"error publicando en SNS ({tipo_interno}):", str(e))
+            break
 
     # alternativa con SQS que probe antes
     # sqs.send_message(
