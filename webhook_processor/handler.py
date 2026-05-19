@@ -25,6 +25,9 @@ def lambda_handler(event, context):
     # print("evento completo:", json.dumps(event))
 
     cuerpo = event.get("body", "")
+    if isinstance(cuerpo, bytes):
+        cuerpo = cuerpo.decode("utf-8")
+
     headers = event.get("headers", {})
 
     firma = headers.get("stripe-signature") or headers.get("Stripe-Signature")
