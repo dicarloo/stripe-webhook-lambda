@@ -38,11 +38,16 @@ Resources:
       CodeUri: .
       # MemorySize: 256  # con 128 me dio timeout en pruebas de carga
       MemorySize: 128
+      Environment:
+        Variables:
+          TABLA_EVENTOS: !Sub "${AWS::StackName}-eventos-stripe"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TablaPedidos
         - DynamoDBCrudPolicy:
             TableName: !Ref TablaPagos
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TablaEventosStripe
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt TopicEventos.TopicName
       Events:
@@ -65,6 +70,21 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: eventos-pagos
+
+  TablaEventosStripe:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-eventos-stripe"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: evento_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: evento_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   # esto lo dejé por si queremos meter una cola entre el webhook y los consumidores
   # ColaEventosPagos:
