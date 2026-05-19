@@ -12,6 +12,8 @@ from botocore.exceptions import ClientError
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
 
+REGION = os.environ.get("AWS_REGION", "us-east-1")
+
 dynamodb = boto3.resource("dynamodb")
 tabla_pedidos = dynamodb.Table(os.environ.get("TABLA_PEDIDOS", "pedidos"))
 tabla_pagos = dynamodb.Table(os.environ.get("TABLA_PAGOS", "pagos"))
@@ -20,7 +22,7 @@ tabla_eventos = dynamodb.Table(os.environ.get("TABLA_EVENTOS", "eventos_stripe")
 # sqs = boto3.client("sqs")
 # COLA_URL = os.environ.get("SQS_COLA_URL")
 
-sns = boto3.client("sns")
+sns = boto3.client("sns", region_name=REGION)
 TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
 
 
