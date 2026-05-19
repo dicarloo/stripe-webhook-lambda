@@ -1,0 +1,9 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+*.pyo
+.aws-sam/
+samconfig.toml
+venv/
+.venv/

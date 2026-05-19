@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Procesador de webhooks de Stripe
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.12
+    Environment:
+      Variables:
+        STRIPE_SECRET_KEY: !Ref StripeSecretKey
+        STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+        TABLA_PEDIDOS: !Ref TablaPedidos
+        TABLA_PAGOS: !Ref TablaPagos
+        SNS_TOPIC_ARN: !Ref TopicEventos
+
+Parameters:
+  StripeSecretKey:
+    Type: String
+    NoEcho: true
+  StripeWebhookSecret:
+    Type: String
+    NoEcho: true
+  TablaPedidos:
+    Type: String
+    Default: pedidos
+  TablaPagos:
+    Type: String
+    Default: pagos
+
+Resources:
+
+  WebhookStripe:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: webhook-stripe-processor
+      Handler: handler.lambda_handler
+      CodeUri: .
+      # MemorySize: 256  # con 128 me dio timeout en pruebas de carga
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TablaPedidos
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TablaPagos
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt TopicEventos.TopicName
+      Events:
+        ApiWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /webhook/stripe
+            Method: POST
+
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      # TracingEnabled: true  # activa xray, costaba plata en dev
+      Auth:
+        DefaultAuthorizer: NONE
+
+  TopicEventos:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: eventos-pagos
+
+  # esto lo dejé por si queremos meter una cola entre el webhook y los consumidores
+  # ColaEventosPagos:
+  #   Type: AWS::SQS::Queue
+  #   Properties:
+  #     QueueName: cola-pagos
+  #     VisibilityTimeout: 60
+  #     MessageRetentionPeriod: 86400
+
+Outputs:
+  UrlWebhook:
+    Description: URL para configurar en Stripe dashboard
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/webhook/stripe"
+  FunctionArn:
+    Value: !GetAtt WebhookStripe.Arn
