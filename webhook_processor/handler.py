@@ -93,18 +93,21 @@ def _pago_exitoso(datos, evento):
     cliente_id = datos.get("customer")
     metadata = datos.get("metadata", {})
     pedido_id = metadata.get("pedido_id")
+    descripcion = datos.get("description", "")
 
     # print("payment_intent_id:", payment_intent_id)
     # print("pedido_id de metadata:", pedido_id)
+    # print("descripcion:", descripcion)
 
     ahora = datetime.utcnow().isoformat()
 
     tabla_pagos.put_item(Item={
         "pago_id": payment_intent_id,
-        "pedido_id": pedido_id,
+        "pedido_id": pedido_id or "sin_pedido",
         "cliente_id": cliente_id or "desconocido",
         "monto": monto,
         "moneda": moneda,
+        "descripcion": descripcion,
         "estado": "exitoso",
         "creado_en": ahora,
         "evento_id": evento["id"],
